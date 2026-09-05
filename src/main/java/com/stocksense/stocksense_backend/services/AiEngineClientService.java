@@ -39,41 +39,55 @@ public class AiEngineClientService {
             "content", content
         );
 
-        try {
-            AIAnalysisResponseDto response = restClient.post()
-                    .uri("/process")
-                    .body(payload)
-                    .retrieve()
-                    .body(AIAnalysisResponseDto.class);
-                    
-            logger.info("Received AI Response for [{}]: Relevance={}, Status={}", 
-                        transactionId, 
-                        response.getRelevanceOutcome(), 
-                        response.getMetrics() != null ? response.getMetrics().getStatus() : "N/A");
-            return response;
-        } catch (Exception e) {
-            logger.error("Failed to connect to Python AI Engine: {}", e.getMessage());
-            throw new RuntimeException("AI Engine Unavailable", e);
+        int maxRetries = 3;
+        for (int i = 0; i < maxRetries; i++) {
+            try {
+                AIAnalysisResponseDto response = restClient.post()
+                        .uri("/process")
+                        .body(payload)
+                        .retrieve()
+                        .body(AIAnalysisResponseDto.class);
+                        
+                logger.info("Received AI Response for [{}]: Relevance={}, Status={}", 
+                            transactionId, 
+                            response.getRelevanceOutcome(), 
+                            response.getMetrics() != null ? response.getMetrics().getStatus() : "N/A");
+                return response;
+            } catch (Exception e) {
+                logger.warn("Failed to connect to Python AI Engine process endpoint (Attempt {}/{}): {}", i + 1, maxRetries, e.getMessage());
+                if (i == maxRetries - 1) {
+                    throw new RuntimeException("AI Engine Unavailable", e);
+                }
+                try { Thread.sleep(10000); } catch (InterruptedException ie) { Thread.currentThread().interrupt(); }
+            }
         }
+        return null;
     }
 
     public AIDiscoveryResponseDto discoverNewsOnDemand(String query) {
         logger.info("Triggering AI search discovery for query: '{}'...", query);
         Map<String, String> payload = Map.of("query", query);
 
-        try {
-            AIDiscoveryResponseDto response = restClient.post()
-                    .uri("/discover")
-                    .body(payload)
-                    .retrieve()
-                    .body(AIDiscoveryResponseDto.class);
-                    
-            logger.info("Received AI Discovery response. Relevance={}", response.getRelevanceOutcome());
-            return response;
-        } catch (Exception e) {
-            logger.error("Failed to connect to Python AI Engine discover endpoint: {}", e.getMessage());
-            throw new RuntimeException("AI Engine Discovery Unavailable", e);
+        int maxRetries = 3;
+        for (int i = 0; i < maxRetries; i++) {
+            try {
+                AIDiscoveryResponseDto response = restClient.post()
+                        .uri("/discover")
+                        .body(payload)
+                        .retrieve()
+                        .body(AIDiscoveryResponseDto.class);
+                        
+                logger.info("Received AI Discovery response. Relevance={}", response.getRelevanceOutcome());
+                return response;
+            } catch (Exception e) {
+                logger.warn("Failed to connect to Python AI Engine discover endpoint (Attempt {}/{}): {}", i + 1, maxRetries, e.getMessage());
+                if (i == maxRetries - 1) {
+                    throw new RuntimeException("AI Engine Discovery Unavailable", e);
+                }
+                try { Thread.sleep(10000); } catch (InterruptedException ie) { Thread.currentThread().interrupt(); }
+            }
         }
+        return null;
     }
 
     public void triggerDiscoverAsync(String query, java.util.List<String> userEmails, String topUrl) {
@@ -84,16 +98,23 @@ public class AiEngineClientService {
             "top_url", topUrl
         );
 
-        try {
-            restClient.post()
-                    .uri("/discover-async")
-                    .body(payload)
-                    .retrieve()
-                    .toBodilessEntity();
-            logger.info("Async discovery request accepted by AI Engine.");
-        } catch (Exception e) {
-            logger.error("Failed to trigger async AI Engine discover endpoint: {}", e.getMessage());
-            throw new RuntimeException("AI Engine Async Discovery Unavailable", e);
+        int maxRetries = 3;
+        for (int i = 0; i < maxRetries; i++) {
+            try {
+                restClient.post()
+                        .uri("/discover-async")
+                        .body(payload)
+                        .retrieve()
+                        .toBodilessEntity();
+                logger.info("Async discovery request accepted by AI Engine.");
+                return;
+            } catch (Exception e) {
+                logger.warn("Failed to trigger async AI Engine discover endpoint (Attempt {}/{}): {}", i + 1, maxRetries, e.getMessage());
+                if (i == maxRetries - 1) {
+                    throw new RuntimeException("AI Engine Async Discovery Unavailable after retries", e);
+                }
+                try { Thread.sleep(10000); } catch (InterruptedException ie) { Thread.currentThread().interrupt(); }
+            }
         }
     }
 }
