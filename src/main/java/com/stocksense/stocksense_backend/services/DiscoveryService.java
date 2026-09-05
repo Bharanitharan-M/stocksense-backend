@@ -94,8 +94,16 @@ public class DiscoveryService {
                 insight.setSummary5Sec((String) payload.get("summary_5_sec"));
                 insight.setBreakdown30Sec((String) payload.get("breakdown_30_sec"));
                 
-                String ticker = (String) payload.get("ticker");
-                insight.setTicker(ticker != null ? ticker.toUpperCase() : "GENERAL");
+                String extractedTicker = (String) payload.get("ticker");
+                String finalTicker = extractedTicker != null ? extractedTicker.toUpperCase() : "GENERAL";
+                
+                // Subsidiary-to-Parent Mapping:
+                // If the AI Engine extracted a different parent ticker (e.g. TTWO) for a subsidiary query (e.g. ROCK STAR GAMES),
+                // we map the insight to the user's exact query so it successfully links to their Watchlist UI!
+                if (query != null && !query.trim().isEmpty() && extractedTicker != null && !query.equalsIgnoreCase(extractedTicker) && !extractedTicker.equals("GENERAL")) {
+                    finalTicker = query.toUpperCase();
+                }
+                insight.setTicker(finalTicker);
                 
                 String sector = (String) payload.get("sector");
                 insight.setSector(sector != null ? sector : "Macro");
